@@ -53,6 +53,7 @@ ifs_3_should_warn: {
         booleans     : true
     };
     input: {
+        var x, y;
         if (x && !(x + "1") && y) { // 1
             var qq;
             foo();
@@ -68,6 +69,7 @@ ifs_3_should_warn: {
         }
     }
     expect: {
+        var x, y;
         var qq; bar();          // 1
         var jj; foo();          // 2
     }
@@ -84,7 +86,9 @@ ifs_4: {
             x(foo)[10].bar.baz = something_else();
     }
     expect: {
-        x(foo)[10].bar.baz = (foo && bar) ? something() : something_else();
+        foo && bar
+            ? x(foo)[10].bar.baz = something()
+            : x(foo)[10].bar.baz = something_else();
     }
 }
 
@@ -131,6 +135,7 @@ ifs_6: {
         comparisons: true
     };
     input: {
+        var x;
         if (!foo && !bar && !baz && !boo) {
             x = 10;
         } else {
@@ -138,6 +143,7 @@ ifs_6: {
         }
     }
     expect: {
+        var x;
         x = foo || bar || baz || boo ? 20 : 10;
     }
 }
@@ -147,6 +153,7 @@ cond_1: {
         conditionals: true
     };
     input: {
+        var do_something; // if undeclared it's assumed to have side-effects
         if (some_condition()) {
             do_something(x);
         } else {
@@ -154,6 +161,7 @@ cond_1: {
         }
     }
     expect: {
+        var do_something;
         do_something(some_condition() ? x : y);
     }
 }
@@ -163,6 +171,7 @@ cond_2: {
         conditionals: true
     };
     input: {
+        var x, FooBar;
         if (some_condition()) {
             x = new FooBar(1);
         } else {
@@ -170,6 +179,7 @@ cond_2: {
         }
     }
     expect: {
+        var x, FooBar;
         x = new FooBar(some_condition() ? 1 : 2);
     }
 }
@@ -179,6 +189,7 @@ cond_3: {
         conditionals: true
     };
     input: {
+        var FooBar;
         if (some_condition()) {
             new FooBar(1);
         } else {
@@ -186,6 +197,7 @@ cond_3: {
         }
     }
     expect: {
+        var FooBar;
         some_condition() ? new FooBar(1) : FooBar(2);
     }
 }
@@ -195,6 +207,7 @@ cond_4: {
         conditionals: true
     };
     input: {
+        var do_something;
         if (some_condition()) {
             do_something();
         } else {
@@ -202,6 +215,7 @@ cond_4: {
         }
     }
     expect: {
+        var do_something;
         some_condition(), do_something();
     }
 }
@@ -301,6 +315,7 @@ cond_7_1: {
         evaluate    : true
     };
     input: {
+        var x;
         // access to global should be assumed to have side effects
         if (y) {
             x = 1+1;
@@ -309,6 +324,7 @@ cond_7_1: {
         }
     }
     expect: {
+        var x;
         x = (y, 2);
     }
 }
@@ -319,6 +335,7 @@ cond_8: {
         evaluate    : true
     };
     input: {
+        var a;
         // compress these
         a = condition ? true : false;
 
@@ -353,6 +370,7 @@ cond_8: {
 
     }
     expect: {
+        var a;
         a = !!condition;
         a = !condition;
         a = !!condition();
@@ -364,5 +382,165 @@ cond_8: {
         a = condition ? 1 : false;
         a = condition ? 0 : true;
         a = condition ? 1 : 0;
+    }
+}
+
+conditional_and: {
+    options = {
+        conditionals: true,
+        evaluate    : true
+    };
+    input: {
+        var a;
+        // compress these
+
+        a = true     && condition;
+        a = 1        && console.log("a");
+        a = 2 * 3    && 2 * condition;
+        a = 5 == 5   && condition + 3;
+        a = "string" && 4 - condition;
+        a = 5 + ""   && condition / 5;
+        a = -4.5     && 6 << condition;
+        a = 6        && 7;
+
+        a = false     && condition;
+        a = NaN       && console.log("b");
+        a = 0         && console.log("c");
+        a = undefined && 2 * condition;
+        a = null      && condition + 3;
+        a = 2 * 3 - 6 && 4 - condition;
+        a = 10 == 7   && condition / 5;
+        a = !"string" && 6 % condition;
+        a = 0         && 7;
+
+        // don't compress these
+
+        a = condition        && true;
+        a = console.log("a") && 2;
+        a = 4 - condition    && "string";
+        a = 6 << condition   && -4.5;
+
+        a = condition        && false;
+        a = console.log("b") && NaN;
+        a = console.log("c") && 0;
+        a = 2 * condition    && undefined;
+        a = condition + 3    && null;
+
+    }
+    expect: {
+        var a;
+
+        a = condition;
+        a = console.log("a");
+        a = 2 * condition;
+        a = condition + 3;
+        a = 4 - condition;
+        a = condition / 5;
+        a = 6 << condition;
+        a = 7;
+
+        a = false;
+        a = NaN;
+        a = 0;
+        a = void 0;
+        a = null;
+        a = 0;
+        a = false;
+        a = false;
+        a = 0;
+
+        a = condition        && true;
+        a = console.log("a") && 2;
+        a = 4 - condition    && "string";
+        a = 6 << condition   && -4.5;
+
+        a = condition        && false;
+        a = console.log("b") && NaN;
+        a = console.log("c") && 0;
+        a = 2 * condition    && void 0;
+        a = condition + 3    && null;
+    }
+}
+
+conditional_or: {
+    options = {
+        conditionals: true,
+        evaluate    : true
+    };
+    input: {
+        var a;
+        // compress these
+
+        a = true     || condition;
+        a = 1        || console.log("a");
+        a = 2 * 3    || 2 * condition;
+        a = 5 == 5   || condition + 3;
+        a = "string" || 4 - condition;
+        a = 5 + ""   || condition / 5;
+        a = -4.5     || 6 << condition;
+        a = 6        || 7;
+
+        a = false     || condition;
+        a = 0         || console.log("b");
+        a = NaN       || console.log("c");
+        a = undefined || 2 * condition;
+        a = null      || condition + 3;
+        a = 2 * 3 - 6 || 4 - condition;
+        a = 10 == 7   || condition / 5;
+        a = !"string" || 6 % condition;
+        a = null      || 7;
+
+        a = console.log(undefined && condition || null);
+        a = console.log(undefined || condition && null);
+
+        // don't compress these
+
+        a = condition        || true;
+        a = console.log("a") || 2;
+        a = 4 - condition    || "string";
+        a = 6 << condition   || -4.5;
+
+        a = condition        || false;
+        a = console.log("b") || NaN;
+        a = console.log("c") || 0;
+        a = 2 * condition    || undefined;
+        a = condition + 3    || null;
+
+    }
+    expect: {
+        var a;
+
+        a = true;
+        a = 1;
+        a = 6;
+        a = true;
+        a = "string";
+        a = "5";
+        a = -4.5;
+        a = 6;
+
+        a = condition;
+        a = console.log("b");
+        a = console.log("c");
+        a = 2 * condition;
+        a = condition + 3;
+        a = 4 - condition;
+        a = condition / 5;
+        a = 6 % condition;
+        a = 7;
+
+        a = console.log(null);
+        a = console.log(condition && null);
+
+        a = condition        || true;
+        a = console.log("a") || 2;
+        a = 4 - condition    || "string";
+        a = 6 << condition   || -4.5;
+
+        a = condition        || false;
+        a = console.log("b") || NaN;
+        a = console.log("c") || 0;
+        a = 2 * condition    || void 0;
+        a = condition + 3    || null;
     }
 }

@@ -31,7 +31,7 @@ function tmpl() {
 
 function log() {
     var txt = tmpl.apply(this, arguments);
-    sys.puts(txt);
+    console.log("%s", txt);
 }
 
 function log_directory(dir) {
@@ -84,9 +84,17 @@ function run_compress_tests() {
                 warnings: false
             });
             var cmp = new U.Compressor(options, true);
-            var expect = make_code(as_toplevel(test.expect), false);
+            var expect;
+            if (test.expect) {
+                expect = make_code(as_toplevel(test.expect), false);
+            } else {
+                expect = test.expect_exact;
+            }
             var input = as_toplevel(test.input);
             var input_code = make_code(test.input);
+            if (test.mangle_props) {
+                input = U.mangle_properties(input, test.mangle_props);
+            }
             var output = input.transform(cmp);
             output.figure_out_scope();
             output = make_code(output, false);
@@ -150,7 +158,7 @@ function parse_test(file) {
             }
             if (node instanceof U.AST_LabeledStatement) {
                 assert.ok(
-                    node.label.name == "input" || node.label.name == "expect",
+                    node.label.name == "input" || node.label.name == "expect" || node.label.name == "expect_exact",
                     tmpl("Unsupported label {name} [{line},{col}]", {
                         name: node.label.name,
                         line: node.label.start.line,
@@ -162,7 +170,16 @@ function parse_test(file) {
                     if (stat.body.length == 1) stat = stat.body[0];
                     else if (stat.body.length == 0) stat = new U.AST_EmptyStatement();
                 }
-                test[node.label.name] = stat;
+                if (node.label.name === "expect_exact") {
+                    if (!(stat.TYPE === "SimpleStatement" && stat.body.TYPE === "String")) {
+                        throw new Error(
+                            "The value of the expect_exact clause should be a string, " +
+                            "like `expect_exact: \"some.exact.javascript;\"`");
+                    }
+                    test[node.label.name] = stat.body.start.value
+                } else {
+                    test[node.label.name] = stat;
+                }
                 return true;
             }
         });
